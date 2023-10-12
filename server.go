@@ -8,9 +8,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+        "encoding/json"
 
 	"github.com/deiu/rdf2go"
-	"github.com/labstack/echo/v4"
 )
 
 const defaultPort = 8069
@@ -91,30 +91,35 @@ func parseTurtle(input string) (*turtleDescr, error) {
 	}, nil
 }
 
-func handleIntoTripples(c echo.Context) error {
-	turtleStrInput := readStringBody(c.Request().Body)
+func handleIntoTripples(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	turtleStrInput := readStringBody(r.Body)
 	
+        enc := json.NewEncoder(w)
 	turtle, err := parseTurtle(turtleStrInput)
+
 	if err != nil {
-		fmt.Println(err.Error())
-		return err
+            fmt.Printf("Error: %s", err.Error())
+            w.WriteHeader(http.StatusInternalServerError)
+            enc.Encode(map[string]any{
+                "error": err.Error(),
+            })
+            return
 	}
 
-	c.JSON(200, turtle)
+        w.WriteHeader(http.StatusOK)
+        enc.Encode(turtle)
 
-	return nil
+	return
 }
 
 func main() {
-	e := echo.New()
+        http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+            fmt.Fprintf(w, "Hello!")
+        })
 
-	e.GET("/", func (c echo.Context) error {
-		c.String(http.StatusOK, "Hello!")
-
-		return nil
-	})
-
-	e.POST("/intoTripples", handleIntoTripples)
+        http.HandleFunc("/intoTripples", handleIntoTripples)
 
 	var port uint = defaultPort
 	if env := os.Getenv("SERVER_PORT"); env != "" {
@@ -125,7 +130,6 @@ func main() {
 	}
 
 	fmt.Printf("Listening on port %d\n", port)
-
-	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), e.Server.Handler))
+	log.Fatalln(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 }
 

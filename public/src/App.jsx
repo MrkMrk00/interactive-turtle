@@ -2,8 +2,10 @@ import { createSignal } from "solid-js";
 
 function App() {
   const [data, setData] = createSignal();
+  const [isError, setIsError] = createSignal();
 
   function getData(ev) {
+    setIsError(false);
     ev.preventDefault();
     const data = Object.fromEntries(new FormData(ev.currentTarget));
 
@@ -11,12 +13,16 @@ function App() {
       method: 'POST',
       body: data.turtle,
     });
+    
+    promise.then(r => r.json()).then(d => {
+        if ('error' in d) {
+            setIsError(true);
+            setData(d.error);
+            return;
+        }
 
-    promise
-      .then(r => r.json())
-      .then(JSON.stringify)
-      .then(setData)
-      .catch(console.error);
+        setData(JSON.stringify(d, null, 4));
+    });
   }
 
   return (
@@ -27,7 +33,7 @@ function App() {
       >
         <textarea 
           id="turtle-textarea"
-          class="border-2 focus:border-green-500 shadow-md rounded-2xl overflow-hidden p-4 outline-none"
+          class="border-2 focus:border-green-500 shadow-md rounded-2xl overflow-hidden p-4 outline-none overflow-y-scroll"
           cols="60"
           rows="10"
           name="turtle"
@@ -39,7 +45,11 @@ function App() {
         >Konvertovat</button>
       </form>
 
-      <code>{data()}</code>
+      { isError() ? (
+            <code class="text-red-500 font-bold px-4">{data()}</code>
+      ) : (
+            <pre class="px-4">{data()}</pre>
+      )}
     </div>
   );
 }
